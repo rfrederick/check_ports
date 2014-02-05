@@ -30,20 +30,16 @@
 #
 
 # please change locations appropriate
-PORTAUDIT=/usr/local/sbin/portaudit
 PKG_VERSION=/usr/sbin/pkg_version
+PKG=/usr/sbin/pkg
 JEXEC=/usr/sbin/jexec
 JLS=/usr/sbin/jls
-PORTDIR=/usr/ports
 # TMP_PATH will be created by check_ports, needs to be writable
 TMP_PATH=/tmp/jailaudit
 
 ###### global vars - don't touch ######
 
-RELEASE=$(uname -r | awk -F. '{ print $1 }')
-PORTINDEX=${PORTDIR}/INDEX-${RELEASE}
-
-PROGNAME=$(basename $0)
+PROGNAME="${0##*/}"
 VERSION=0.6.1
 DATE="10 Mar 2009"
 PROJECTURL=http://code.adminlife.net/check_ports
@@ -56,6 +52,7 @@ MSG_STATE=0
 PORTSAGE=0
 UPDATES=0
 PKGVERSION_OPTS="-Ivl "\<""
+PKG_OPTS="version -Ivl "\<""
 
 ###### functions ######
 
@@ -68,7 +65,7 @@ print_version() {
 
 # print help msg and exit
 print_help() {
-  printf "usage: ${PROGNAME} [options] [-j jailname ]\n\n"
+  printf "usage: ${PROGNAME} [options] [-j jailname] [-I <path>] [-P <path>]\n\n"
   printf "options:\n"
   printf "  -h\t\tshow this help message and exit.\n\n"
   printf "  -a\t\tshows if any updates are available.\n"
@@ -82,7 +79,12 @@ print_help() {
   printf "  \t\tHighly recommended before first run.\n\n"
   printf "  -u \t\trun check_ports in unprivileged mode.\n"
   printf "  \t\tMuch slower but more secure.\n\n"
-  printf "  -v\t\tshow version number.\n"
+  printf "  -v\t\tshow version number.\n\n"
+  printf "  -I <path>\tPath to INDEX file.\n\n"
+  if [ ${RELEASE} -lt 10]
+  then
+    printf "  -P <path>\tPath to portaudit.\n"
+  fi
   exit 0
 }
 
@@ -126,6 +128,16 @@ check_pkg_version() {
   else
     return 1
   fi
+}
+
+# pkg accessible?
+check_pkg() {
+  if [ -x ${PKG} ]
+  then
+    return 0
+  else
+    return 1
+ fi
 }
 
 # jexec accessible?
@@ -172,21 +184,42 @@ check_env() {
     printf "  OK:    Your operating system is FreeBSD, main release ${RELEASE}.\n"
   fi
 
-  check_portaudit
-  if [ $? -eq 1 ]
+  if [ ${RELEASE} -lt 10 ]
   then
-    printf "  ERROR: portaudit not found!\n"
-  else
-    printf "  OK:    portaudit found at ${PORTAUDIT}\n"
-  fi
+    check_portaudit
+    if [ $? -eq 1 ]
+    then
+      printf "  ERROR: portaudit not found!\n"
+    else
+      printf "  OK:    portaudit found at ${PORTAUDIT}\n"
+    fi
 
-  check_pkg_version
-  if [ $? -eq 1 ]
-  then
-    printf "  ERROR: pkg_version not found at ${PKG_VERSION}.\n"
-    printf "         Update information will not be available!\n"
+    check_pkg_version
+    if [ $? -eq 1 ]
+    then
+      printf "  ERROR: pkg_version not found at ${PKG_VERSION}.\n"
+      printf "         Update information will not be available!\n"
+    else
+      printf "  OK:    pkg_version found at ${PKG_VERSION}\n"
+    fi
+
+    check_portaudit_db
+    PORTAUDIT_DB_DATE=$(${PORTAUDIT} -d | awk -F ": " '{print $2}')
+    if [ $? -eq 1 ]
+    then
+      printf "  ERROR: portaudit database too old (Last Update: ${PORTAUDIT_DB_DATE}) - update with portaudit -F\n"
+    else
+      printf "  OK:    portaudit database is up to date (Last Update: ${PORTAUDIT_DB_DATE}).\n"
+    fi
   else
-    printf "  OK:    pkg_version found at ${PKG_VERSION}\n"
+    check_pkg
+    if [ $? -eq 1 ]
+    then
+      printf "  ERROR: pkg not found at ${PKG}.\n"
+      printf "         Update and security information will not be available!\n"
+    else
+      printf "  OK:    pkg found at ${PKG}\n"
+    fi
   fi
 
   check_jexec
@@ -195,15 +228,6 @@ check_env() {
     printf "  ERROR: jexec not found.\n"
   else
     printf "  OK:    jexec found at ${JEXEC}\n"
-  fi
-
-  check_portaudit_db
-  PORTAUDIT_DB_DATE=$(${PORTAUDIT} -d | awk -F ": " '{print $2}')
-  if [ $? -eq 1 ]
-  then
-    printf "  ERROR: portaudit database too old (Last Update: ${PORTAUDIT_DB_DATE}) - update with portaudit -F\n"
-  else
-    printf "  OK:    portaudit database is up to date (Last Update: ${PORTAUDIT_DB_DATE}).\n"
   fi
 
   check_portindex
@@ -254,24 +278,34 @@ run_main() {
   # count lines from portversion if asked
   if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1  ]
   then
-    UPDATES=$(${PKG_VERSION} ${PKGVERSION_OPTS} | grep -c "needs updating" -)
+    if [ ${RELEASE} -lt 10 ]
+    then
+      UPDATES=$(${PKG_VERSION} ${PKGVERSION_OPTS} ${PORTINDEX} | grep -c "needs updating")
+    else
+      UPDATES=$(${PKG} ${PKG_OPTS} ${PORTINDEX} | grep -c "needs updating")
+    fi
   fi
   
   # count lines from find
   if [ ${CHECK_PORTS_AGE} -eq 1 ]
   then
-    PORTSAGE=$(find ${PORTINDEX} -name INDEX-${RELEASE} -mtime +1 | grep -c INDEX-${RELEASE} -)
+    PORTSAGE=$(find ${PORTINDEX} -name ${PORTINDEX##*/} -mtime +1 | grep -c ${PORTINDEX##*/})
   fi
 
   # count lines from portaudit
-  PROBLEMS=$(${PORTAUDIT} | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
+  if [ ${RELEASE} -lt 10 ]
+  then
+    PROBLEMS=$(${PORTAUDIT} | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
+  else
+    PROBLEMS=$(${PKG} audit | grep "problem(s) in the installed packages found." | awk '{ print $1 }')
+  fi
 
   run_gen_state
 }
 
 # main function for use in jails
 run_main_jail() {
-  if [ ${UNPRIV_MODE} -eq 1 ]
+  if [ ${UNPRIV_MODE} -eq 1 -a ${RELEASE} -lt 10 ]
   then
     mkdir ${TMP_PATH} >/dev/null 2>&1
     ls -1 ${JAIL_PATH}/var/db/pkg/ > ${TMP_PATH}/${JAIL} 2>/dev/null
@@ -285,19 +319,29 @@ run_main_jail() {
       print_state "only root can execute jail checks - users should use -u mode" "3"
     else
       # count lines from portaudit
-      PROBLEMS=$(${JEXEC} ${JID}  ${PORTAUDIT} | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
+      if [ ${RELEASE} -lt 10 ]
+      then
+        PROBLEMS=$(${JEXEC} ${JID}  ${PORTAUDIT} | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
+      else
+        PROBLEMS=$(${PKG} -j ${JID} audit | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
+      fi
     fi
   fi
   # count lines from pkg_version if asked and set PKG_DBDIR
   if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1  ]
   then
-    UPDATES=$(PKG_DBDIR=${JAIL_PATH}/var/db/pkg ${PKG_VERSION} ${PKGVERSION_OPTS} | grep -c "needs updating" -)
+    if [ ${RELEASE} -lt 10 ]
+    then
+      UPDATES=$(PKG_DBDIR=${JAIL_PATH}/var/db/pkg ${PKG_VERSION} ${PKGVERSION_OPTS} ${JAIL_PATH}${PORTINDEX} | grep -c "needs updating")
+    else
+      UPDATES=$(${PKG} -j ${JID} ${PKG_OPTS} ${JAIL_PATH}${PORTINDEX} | grep -c "needs updating")
+    fi
   fi
 
   # count lines from find
   if [ ${CHECK_PORTS_AGE} -eq 1 ]
   then
-    PORTSAGE=$(find ${JAIL_PATH}${PORTINDEX} -name INDEX-${RELEASE} -mtime +1 | grep -c INDEX-${RELEASE} -)
+    PORTSAGE=$(find ${JAIL_PATH}${PORTINDEX} -name ${PORTINDEX##*/} -mtime +1 | grep -c ${PORTINDEX##*/})
   fi
 
   run_gen_state
@@ -305,12 +349,14 @@ run_main_jail() {
 
 ###### main ######
 
-while getopts hvcrawpuj: opt 2>/dev/null
+while getopts I:P:hvcrawpuj: opt 2>/dev/null
 do
   case $opt in
+    I) PORTINDEX="$OPTARG" ;;
+    P) PORTAUDIT="$OPTARG" ;;
     h) print_help;;
     v) print_version;;
-    c) check_env;;
+    c) run_check_env=run_check_env;;
     r) ;; # parameter -r is now obsolete, we don't use portversion anymore
     a) ANY_UPDATE=1;;
     w) WARN_ON_ANY_UPDATE=1;;
@@ -320,6 +366,14 @@ do
     ?) exit 1;;
   esac
 done
+
+PORTDIR=/usr/ports
+RELEASE=$(uname -r)
+RELEASE="${RELEASE%%.*}"
+: ${PORTINDEX:="${PORTDIR}/INDEX-${RELEASE}"}
+: ${PORTAUDIT:=/usr/local/sbin/portaudit}
+
+[ -n "$run_check_env" ] && check_env
 
 # check for improper usage
 if [ ${WARN_ON_ANY_UPDATE} -eq 1 -a ${ANY_UPDATE} -eq 1 ]
