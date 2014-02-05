@@ -1,0 +1,24 @@
+Nagios Plugin to monitor your FreeBSD Ports Tree for updates or installed packages with known security vulnerabilities.
+check_ports can be called without arguments. The default behaviour is to check installed packages against portaudit for known security vulnerabilites.
+
+./check_ports
+PORTS OK - 0 security problem(s).
+
+If a security problem is found Nagios state will change to critical.
+
+./check_ports
+PORTS CRITICAL - 2 security problem(s).
+
+If you want to monitor all of your ports and the age of your ports tree you can use this handy switch,
+which won't change Nagios state to warning in case of updates:
+
+./check_ports -arp
+PORTS OK - 0 security problem(s), 1 Package(s) available for upgrade, Ports Tree updated within the last 24h.
+
+To monitor a jail within your host system with all ports and the ports tree age use this switch.
+In case of any update it will return the warning state to Nagios:
+
+./check_ports -wrp -j jailname
+PORTS WARNING - 0 security problem(s), 12 Package(s) available for upgrade, Ports Tree updated within the last 24h.
+
+Please check the homepage for additional information.
