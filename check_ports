@@ -1,0 +1,350 @@
+#!/bin/sh
+#
+# check_ports: Nagios Plugin to monitor your FreeBSD Ports Tree for updates or
+#              installed packages with known security vulnerabilities.
+#
+# http://code.adminlife.net/check_ports/
+#
+# Copyright (c) 2008-2009, Matthias Kellermann
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+#    * Redistributions of source code must retain the above copyright notice, this
+#      list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the documentation
+#      and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+# OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+# please change locations appropriate
+PORTAUDIT=/usr/local/sbin/portaudit
+PKG_VERSION=/usr/sbin/pkg_version
+JEXEC=/usr/sbin/jexec
+JLS=/usr/sbin/jls
+PORTDIR=/usr/ports
+# TMP_PATH will be created by check_ports, needs to be writable
+TMP_PATH=/tmp/jailaudit
+
+###### global vars - don't touch ######
+
+RELEASE=$(uname -r | awk -F. '{ print $1 }')
+PORTINDEX=${PORTDIR}/INDEX-${RELEASE}
+
+PROGNAME=$(basename $0)
+VERSION=0.6.1
+DATE="10 Mar 2009"
+PROJECTURL=http://code.adminlife.net/check_ports
+
+ANY_UPDATE=0
+WARN_ON_ANY_UPDATE=0
+CHECK_PORTS_AGE=0
+UNPRIV_MODE=0
+MSG_STATE=0
+PORTSAGE=0
+UPDATES=0
+PKGVERSION_OPTS="-Ivl "\<""
+
+###### functions ######
+
+# print version and exit
+print_version() {
+  printf "Nagios Plugin ${PROGNAME} for FreeBSD Ports v${VERSION} (${DATE})\n\n"
+  printf ${PROJECTURL}"\n\n"
+  exit 0
+}
+
+# print help msg and exit
+print_help() {
+  printf "usage: ${PROGNAME} [options] [-j jailname ]\n\n"
+  printf "options:\n"
+  printf "  -h\t\tshow this help message and exit.\n\n"
+  printf "  -a\t\tshows if any updates are available.\n"
+  printf "\t\tDoes not change state, use -w for that.\n\n"
+  printf "  -w\t\tshows if any updates are available.\n"
+  printf "\t\tChanges state to warning.\n\n"
+  printf "  -p\t\tdisplay warning if your ports tree is\n"
+  printf "  \t\tolder than 24 hours.\n\n"
+  printf "  -j jailname\tcheck jail instead of main system.\n\n"
+  printf "  -c\t\tcheck environment for needed tools.\n"
+  printf "  \t\tHighly recommended before first run.\n\n"
+  printf "  -u \t\trun check_ports in unprivileged mode.\n"
+  printf "  \t\tMuch slower but more secure.\n\n"
+  printf "  -v\t\tshow version number.\n"
+  exit 0
+}
+
+# print state to STDOUT with proper exit code for Nagios
+print_state() {
+  case ${2} in
+    0) STATE=OK;;
+    1) STATE=WARNING;;
+    2) STATE=CRITICAL;;
+    3) STATE=UNKNOWN;;
+  esac
+  printf "PORTS ${STATE} - ${1}\n"
+  exit ${2}
+}
+
+# are we running FreeBSD?
+check_os() {
+  if [ $(uname -s) = "FreeBSD" ]
+  then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# portaudit accessible?
+check_portaudit() {
+  if [ -x ${PORTAUDIT} ]
+  then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# pkg_version accessible?
+check_pkg_version() {
+  if [ -x ${PKG_VERSION} ]
+  then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# jexec accessible?
+check_jexec() {
+  if [ -x ${JEXEC} ]
+  then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# portaudit database up to date?
+check_portaudit_db() {
+  ${PORTAUDIT} >/dev/null 2>&1
+  if [ $? -eq 2 ]
+  then
+    return 1
+  else
+    return 0
+  fi
+}
+
+# INDEX accessible?
+check_portindex() {
+  if [ -r ${PORTINDEX} ]
+ then
+   return 0
+ else
+   return 1
+ fi
+}
+
+# pre check
+check_env() {
+  printf "checking environment ...\n\n"
+
+  check_os
+  if [ $? -eq 1 ]
+  then
+    printf "  ERROR: Your operating system is not FreeBSD.\n"
+    printf "         This plugin only works under FreeBSD!\n"
+  else
+    printf "  OK:    Your operating system is FreeBSD, main release ${RELEASE}.\n"
+  fi
+
+  check_portaudit
+  if [ $? -eq 1 ]
+  then
+    printf "  ERROR: portaudit not found!\n"
+  else
+    printf "  OK:    portaudit found at ${PORTAUDIT}\n"
+  fi
+
+  check_pkg_version
+  if [ $? -eq 1 ]
+  then
+    printf "  ERROR: pkg_version not found at ${PKG_VERSION}.\n"
+    printf "         Update information will not be available!\n"
+  else
+    printf "  OK:    pkg_version found at ${PKG_VERSION}\n"
+  fi
+
+  check_jexec
+  if [ $? -eq 1 ]
+  then
+    printf "  ERROR: jexec not found.\n"
+  else
+    printf "  OK:    jexec found at ${JEXEC}\n"
+  fi
+
+  check_portaudit_db
+  PORTAUDIT_DB_DATE=$(${PORTAUDIT} -d | awk -F ": " '{print $2}')
+  if [ $? -eq 1 ]
+  then
+    printf "  ERROR: portaudit database too old (Last Update: ${PORTAUDIT_DB_DATE}) - update with portaudit -F\n"
+  else
+    printf "  OK:    portaudit database is up to date (Last Update: ${PORTAUDIT_DB_DATE}).\n"
+  fi
+
+  check_portindex
+  if [ $? -eq 1 ]
+  then
+    printf "  ERROR: ${PORTINDEX} not readable.\n"
+  else
+    printf "  OK:    ${PORTINDEX} readable.\n"
+  fi
+
+  exit 0
+}
+
+# generate state mesage for Nagios and call print_state
+run_gen_state() {
+  MSG_PROBLEMS="${PROBLEMS} security problem(s)"
+
+  if [ ${WARN_ON_ANY_UPDATE} -eq 1 -o ${ANY_UPDATE} -eq 1 ]
+  then
+    MSG_UPDATES=", ${UPDATES} Package(s) available for upgrade"
+  fi
+
+  if [ ${WARN_ON_ANY_UPDATE} -eq 1 -a ${UPDATES} -gt 0 ]
+  then
+    MSG_STATE="1"
+    MSG_UPDATES=", ${UPDATES} Package(s) available for upgrade"
+  fi
+
+  if [ ${CHECK_PORTS_AGE} -eq 1 -a ${PORTSAGE} -gt 0 ]
+  then
+    MSG_STATE="1"
+    MSG_PORTSAGE=", Ports Tree older than 24h"
+  elif [ ${CHECK_PORTS_AGE} -eq 1 -a ${PORTSAGE} -eq 0 ]
+  then
+    MSG_PORTSAGE=", Ports Tree updated within the last 24h"
+  fi
+
+  if [ ${PROBLEMS} -gt 0 ]
+  then
+    MSG_STATE="2"
+  fi
+
+  print_state "${MSG_PROBLEMS}${MSG_UPDATES}${MSG_PORTSAGE}." ${MSG_STATE}
+}
+
+# main function
+run_main() {
+  # count lines from portversion if asked
+  if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1  ]
+  then
+    UPDATES=$(${PKG_VERSION} ${PKGVERSION_OPTS} | grep -c "needs updating" -)
+  fi
+  
+  # count lines from find
+  if [ ${CHECK_PORTS_AGE} -eq 1 ]
+  then
+    PORTSAGE=$(find ${PORTINDEX} -name INDEX-${RELEASE} -mtime +1 | grep -c INDEX-${RELEASE} -)
+  fi
+
+  # count lines from portaudit
+  PROBLEMS=$(${PORTAUDIT} | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
+
+  run_gen_state
+}
+
+# main function for use in jails
+run_main_jail() {
+  if [ ${UNPRIV_MODE} -eq 1 ]
+  then
+    mkdir ${TMP_PATH} >/dev/null 2>&1
+    ls -1 ${JAIL_PATH}/var/db/pkg/ > ${TMP_PATH}/${JAIL} 2>/dev/null
+    # count lines from portaudit
+    PROBLEMS=$(${PORTAUDIT} -f ${TMP_PATH}/${JAIL} | grep "problem(s) found." | awk '{ print $1 }')
+    rm ${TMP_PATH}/${JAIL}
+    rmdir ${TMP_PATH} >/dev/null 2>&1
+  else
+    if [ $(id -ru) -ne 0 ]
+    then
+      print_state "only root can execute jail checks - users should use -u mode" "3"
+    else
+      # count lines from portaudit
+      PROBLEMS=$(${JEXEC} ${JID}  ${PORTAUDIT} | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
+    fi
+  fi
+  # count lines from pkg_version if asked and set PKG_DBDIR
+  if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1  ]
+  then
+    UPDATES=$(PKG_DBDIR=${JAIL_PATH}/var/db/pkg ${PKG_VERSION} ${PKGVERSION_OPTS} | grep -c "needs updating" -)
+  fi
+
+  # count lines from find
+  if [ ${CHECK_PORTS_AGE} -eq 1 ]
+  then
+    PORTSAGE=$(find ${JAIL_PATH}${PORTINDEX} -name INDEX-${RELEASE} -mtime +1 | grep -c INDEX-${RELEASE} -)
+  fi
+
+  run_gen_state
+}
+
+###### main ######
+
+while getopts hvcrawpuj: opt 2>/dev/null
+do
+  case $opt in
+    h) print_help;;
+    v) print_version;;
+    c) check_env;;
+    r) ;; # parameter -r is now obsolete, we don't use portversion anymore
+    a) ANY_UPDATE=1;;
+    w) WARN_ON_ANY_UPDATE=1;;
+    p) CHECK_PORTS_AGE=1;;
+    u) UNPRIV_MODE=1;;
+    j) JAIL=${OPTARG};;
+    ?) exit 1;;
+  esac
+done
+
+# check for improper usage
+if [ ${WARN_ON_ANY_UPDATE} -eq 1 -a ${ANY_UPDATE} -eq 1 ]
+then
+  print_state "options -a and -w can not be used together." "3"
+fi
+
+# check for jail, then run run_main() or run_main_jail()
+if [ -z ${JAIL} ]
+then
+  if [ ${UNPRIV_MODE} -eq 1 ]
+  then
+    print_state "option -u can only be used with a jail." "3"
+  fi
+  run_main
+else
+  if [ ! -s /var/run/jail_${JAIL}.id ]
+  then
+    print_state "Jail ${JAIL} not found (is ${JAIL} running?)." "3"
+  elif [ ! -r /var/run/jail_${JAIL}.id ]
+  then
+    print_state "Jail ${JAIL} not readable." "3"
+  else
+    JID=$(cat /var/run/jail_${JAIL}.id)
+    JAIL_PATH=$(${JLS} | awk -v jid="${JID}" '$1 == jid {print $4}') 
+    run_main_jail
+  fi
+fi

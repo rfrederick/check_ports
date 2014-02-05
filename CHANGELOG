@@ -1,0 +1,19 @@
+10 Mar 2009: bugfix release v0.6.1
+             - bug in unprivileged mode for jails at function run_main_jail()
+               (thanks to Aleksandr Stankevic)
+
+20 Feb 2009: release v0.6
+             - use pkg_version(1) instead of portversion(1)
+               (faster, no need to install ports-mgmt/portupgrade)
+             - added unprivileged mode (-u parameter), slow but now any
+               user can run jail checks (thanks to Artem Sidorenko)
+             - fixed location of INDEX file, depending on release number
+              (thanks to David Croal)
+             - replaced cut(1) with awk(1)
+             - check uid before executing jail check via jexec(8)
+             - general code cleanup
+             - removed spelling mistakes
+
+09 Mar 2008: first release to public v0.5.6
+
+For more information visit http://code.adminlife.net/check_ports/
