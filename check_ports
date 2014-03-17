@@ -45,6 +45,8 @@ VERSION=0.6.1
 DATE="10 Mar 2009"
 PROJECTURL=http://code.adminlife.net/check_ports
 
+RELEASE=$(uname -r)
+RELEASE="${RELEASE%%.*}"
 ANY_UPDATE=0
 WARN_ON_ANY_UPDATE=0
 CHECK_PORTS_AGE=0
@@ -52,6 +54,7 @@ UNPRIV_MODE=0
 MSG_STATE=0
 PORTSAGE=0
 UPDATES=0
+USE_PKG=0
 PKGVERSION_OPTS="-Ivl "\<""
 PKG_OPTS="version -Ivl "\<""
 
@@ -82,9 +85,10 @@ print_help() {
   printf "  \t\tMuch slower but more secure.\n\n"
   printf "  -v\t\tshow version number.\n\n"
   printf "  -I <path>\tPath to INDEX file.\n\n"
-  if [ ${RELEASE} -lt 10]
+  if [ ${RELEASE} -lt 10 ]
   then
-    printf "  -P <path>\tPath to portaudit.\n"
+    printf "  -P <path>\tPath to portaudit.\n\n"
+    printf "  -g\t\tuse the pkg(8) suite of tools.\n\n"
   fi
   exit 0
 }
@@ -185,7 +189,7 @@ check_env() {
     printf "  OK:    Your operating system is FreeBSD, main release ${RELEASE}.\n"
   fi
 
-  if [ ${RELEASE} -lt 10 ]
+  if [ ${USE_PKG} -eq 0 ]
   then
     check_portaudit
     if [ $? -eq 1 ]
@@ -279,7 +283,7 @@ run_main() {
   # count lines from portversion if asked
   if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1  ]
   then
-    if [ ${RELEASE} -lt 10 ]
+    if [ ${USE_PKG} -eq 0 ]
     then
       UPDATES=$(${PKG_VERSION} ${PKGVERSION_OPTS} ${PORTINDEX} | grep -c "needs updating")
     else
@@ -294,7 +298,7 @@ run_main() {
   fi
 
   # count lines from portaudit
-  if [ ${RELEASE} -lt 10 ]
+  if [ ${USE_PKG} -eq 0 ]
   then
     PROBLEMS=$(${PORTAUDIT} | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
   else
@@ -306,7 +310,7 @@ run_main() {
 
 # main function for use in jails
 run_main_jail() {
-  if [ ${UNPRIV_MODE} -eq 1 -a ${RELEASE} -lt 10 ]
+  if [ ${UNPRIV_MODE} -eq 1 -a ${USE_PKG} -eq 0 ]
   then
     mkdir ${TMP_PATH} >/dev/null 2>&1
     ls -1 ${JAIL_PATH}/var/db/pkg/ > ${TMP_PATH}/${JAIL} 2>/dev/null
@@ -320,7 +324,7 @@ run_main_jail() {
       print_state "only root can execute jail checks - users should use -u mode" "3"
     else
       # count lines from portaudit
-      if [ ${RELEASE} -lt 10 ]
+      if [ ${USE_PKG} -eq 0 ]
       then
         PROBLEMS=$(${JEXEC} ${JID}  ${PORTAUDIT} | grep "problem(s) in your installed packages found." | awk '{ print $1 }')
       else
@@ -331,7 +335,7 @@ run_main_jail() {
   # count lines from pkg_version if asked and set PKG_DBDIR
   if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1  ]
   then
-    if [ ${RELEASE} -lt 10 ]
+    if [ ${USE_PKG} -eq 0 ]
     then
       UPDATES=$(PKG_DBDIR=${JAIL_PATH}/var/db/pkg ${PKG_VERSION} ${PKGVERSION_OPTS} ${JAIL_PATH}${PORTINDEX} | grep -c "needs updating")
     else
@@ -350,7 +354,7 @@ run_main_jail() {
 
 ###### main ######
 
-while getopts I:P:hvcrawpuj: opt 2>/dev/null
+while getopts I:P:hvcrawpuj:g opt 2>/dev/null
 do
   case $opt in
     I) PORTINDEX="$OPTARG" ;;
@@ -364,13 +368,12 @@ do
     p) CHECK_PORTS_AGE=1;;
     u) UNPRIV_MODE=1;;
     j) JAIL=${OPTARG};;
+    g) USE_PKG=1;;
     ?) exit 1;;
   esac
 done
 
 PORTDIR=/usr/ports
-RELEASE=$(uname -r)
-RELEASE="${RELEASE%%.*}"
 : ${PORTINDEX:="${PORTDIR}/INDEX-${RELEASE}"}
 : ${PORTAUDIT:=/usr/local/sbin/portaudit}
 
@@ -382,6 +385,12 @@ then
   print_state "options -a and -w can not be used together." "3"
 fi
 
+# check OS release, use the pkg(8) suite of tools implicitly if the release is 10 or greater
+if [ ${RELEASE} -ge 10 ]
+then
+  USE_PKG=1
+fi
+
 # check for jail, then run run_main() or run_main_jail()
 if [ -z ${JAIL} ]
 then
@@ -391,6 +400,10 @@ then
   fi
   run_main
 else
+  if [ ${USE_PKG} -eq 1 -a $UNPRIV_MODE -eq 1 ]
+  then
+    print_state "option -u cannot be used with the pkg(8) suite of tools." "3"
+  fi
   if [ ! -s /var/run/jail_${JAIL}.id ]
   then
     print_state "Jail ${JAIL} not found (is ${JAIL} running?)." "3"
