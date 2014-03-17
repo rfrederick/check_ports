@@ -354,7 +354,7 @@ run_main_jail() {
 
 ###### main ######
 
-while getopts I:P:hvcrawpuj:g opt 2>/dev/null
+while getopts I:P:hvcawpuj:g opt 2>/dev/null
 do
   case $opt in
     I) PORTINDEX="$OPTARG" ;;
@@ -362,7 +362,6 @@ do
     h) print_help;;
     v) print_version;;
     c) run_check_env=run_check_env;;
-    r) ;; # parameter -r is now obsolete, we don't use portversion anymore
     a) ANY_UPDATE=1;;
     w) WARN_ON_ANY_UPDATE=1;;
     p) CHECK_PORTS_AGE=1;;
