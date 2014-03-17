@@ -88,7 +88,8 @@ print_help() {
   if [ ${RELEASE} -lt 10 ]
   then
     printf "  -P <path>\tPath to portaudit.\n\n"
-    printf "  -g\t\tuse the pkg(8) suite of tools.\n\n"
+    printf "  -g\t\tuse the pkg(8) suite of tools on FreeBSD <= 9.x\n"
+    printf "  \t\timplicit on FreeBSD >= 10.x\n\n"
   fi
   exit 0
 }
