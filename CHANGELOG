@@ -1,3 +1,11 @@
+17 Mar 2014: release v0.7
+             - added support for the pkg(8) suite of tools
+             - added -g option to manually specify the use of pkg(8)
+               instead of pkg_* and portaudit on FreeBSD <= 9.x
+             - removed references to the deprecated and removed -r option
+             - applied downstream patches
+             - documentation cleanup
+
 10 Mar 2009: bugfix release v0.6.1
              - bug in unprivileged mode for jails at function run_main_jail()
                (thanks to Aleksandr Stankevic)
@@ -16,4 +24,4 @@
 
 09 Mar 2008: first release to public v0.5.6
 
-For more information visit http://code.adminlife.net/check_ports/
+For more information visit https://github.com/rfrederick/check_ports/
