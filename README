@@ -1,24 +1,46 @@
-Nagios Plugin to monitor your FreeBSD Ports Tree for updates or installed packages with known security vulnerabilities.
-check_ports can be called without arguments. The default behaviour is to check installed packages against portaudit for known security vulnerabilites.
+Nagios plugin to monitor the local FreeBSD ports tree for updates or known security vulnerabilities in installed packages.
+
+check_ports can be called without arguments. The default behaviour
+is to check installed packages against portaudit on FreeBSD <= 9.x
+or pkg audit on FreeBSD >= 10.x for known security vulnerabilites:
 
 ./check_ports
 PORTS OK - 0 security problem(s).
 
-If a security problem is found Nagios state will change to critical.
+If a security problem is found the returned state will change to Critical:
 
 ./check_ports
 PORTS CRITICAL - 2 security problem(s).
 
-If you want to monitor all of your ports and the age of your ports tree you can use this handy switch,
-which won't change Nagios state to warning in case of updates:
+If you are running FreeBSD <= 9.x and have switched to using pkg(8)
+use the -g option to have check_ports use the pkg(8) suite of tools
+instead of the legacy pkg_* tools and portaudit:
 
-./check_ports -arp
-PORTS OK - 0 security problem(s), 1 Package(s) available for upgrade, Ports Tree updated within the last 24h.
+./check_ports -g
+PORTS OK - 0 security problem(s).
 
-To monitor a jail within your host system with all ports and the ports tree age use this switch.
-In case of any update it will return the warning state to Nagios:
+If you want to monitor all of your installed packages for updates use the -a option.
+This won't change the returned state to Warning if updates are available:
 
-./check_ports -wrp -j jailname
-PORTS WARNING - 0 security problem(s), 12 Package(s) available for upgrade, Ports Tree updated within the last 24h.
+./check_ports -a
+PORTS OK - 0 security problem(s), 1 Package(s) available for upgrade.
 
-Please check the homepage for additional information.
+If you want to monitor all of your installed packages for updates
+and have a Warning state returned if updates are available use the -w option:
+
+./check_ports -w
+PORTS WARNING - 0 security problem(s), 1 Package(s) available for upgrade.
+
+If you want to monitor the age of the local ports tree use the -p option.
+This will return a Warning state if the local ports tree is older than 24 hours:
+
+./check_ports -p
+PORTS WARNING - 0 security problem(s), 0 Package(s) available for upgrade, Ports Tree older than 24h.
+
+To monitor installed packages on a jail within your system
+use the -j option along with the name of the jail:
+
+./check_ports -j jailname
+PORTS OK - 0 security problem(s).
+
+Please check the plugin's help message (-h option) for additional information.
