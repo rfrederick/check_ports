@@ -41,8 +41,8 @@ TMP_PATH=/tmp/jailaudit
 ###### global vars - don't touch ######
 
 PROGNAME="${0##*/}"
-VERSION=0.7
-DATE="17 Mar 2014"
+VERSION=0.7.1
+DATE="23 Jun 2014"
 PROJECTURL=https://github.com/rfrederick/check_ports
 
 RELEASE=$(uname -r)

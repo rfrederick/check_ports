@@ -1,3 +1,11 @@
+23 Jun 2014: release v0.7.1
+             - fixed an issue where the number of packages available for
+               upgrade was not properly reported in some instances
+               (reported by Dominique Gagnon <gagnon.dom@gmail.com>)
+             - added listing of packages available for upgrade and
+               printing of associated perf data
+               (contributed by Dominique Gagnon <gagnon.dom@gmail.com>)
+
 17 Mar 2014: release v0.7
              - added support for the pkg(8) suite of tools
              - added -g option to manually specify the use of pkg(8)
