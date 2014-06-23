@@ -54,6 +54,7 @@ UNPRIV_MODE=0
 MSG_STATE=0
 PORTSAGE=0
 UPDATES=0
+UPDATES_LIST=""
 USE_PKG=0
 PKGVERSION_OPTS="-Ivl "\<""
 PKG_OPTS="version -Ivl "\<""
@@ -271,12 +272,19 @@ run_gen_state() {
     MSG_PORTSAGE=", Ports Tree updated within the last 24h"
   fi
 
+  MSG_PERFDATA="total_updates=${UPDATES};0;0 security_problems=${PROBLEMS};0;0"
+
+  if [ -n "$UPDATES_LIST" ]
+  then
+    UPDATES_LIST="\n${UPDATES_LIST}"
+  fi
+
   if [ ${PROBLEMS} -gt 0 ]
   then
     MSG_STATE="2"
   fi
 
-  print_state "${MSG_PROBLEMS}${MSG_UPDATES}${MSG_PORTSAGE}." ${MSG_STATE}
+  print_state "${MSG_PROBLEMS}${MSG_UPDATES}${MSG_PORTSAGE}. | ${MSG_PERFDATA}${UPDATES_LIST}" ${MSG_STATE}
 }
 
 # main function
@@ -286,9 +294,11 @@ run_main() {
   then
     if [ ${USE_PKG} -eq 0 ]
     then
-      UPDATES=$(${PKG_VERSION} ${PKGVERSION_OPTS} ${PORTINDEX} | grep -c "needs updating")
+      UPDATES_LIST=$(${PKG_VERSION} ${PKGVERSION_OPTS} ${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
+      UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
     else
-      UPDATES=$(${PKG} ${PKG_OPTS} ${PORTINDEX} | grep -c "needs updating")
+      UPDATES_LIST=$(${PKG} ${PKG_OPTS} ${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
+      UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
     fi
   fi
   
@@ -338,9 +348,11 @@ run_main_jail() {
   then
     if [ ${USE_PKG} -eq 0 ]
     then
-      UPDATES=$(PKG_DBDIR=${JAIL_PATH}/var/db/pkg ${PKG_VERSION} ${PKGVERSION_OPTS} ${JAIL_PATH}${PORTINDEX} | grep -c "needs updating")
+      UPDATES_LIST=$(PKG_DBDIR=${JAIL_PATH}/var/db/pkg ${PKG_VERSION} ${PKGVERSION_OPTS} ${JAIL_PATH}${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
+      UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
     else
-      UPDATES=$(${PKG} -j ${JID} ${PKG_OPTS} ${JAIL_PATH}${PORTINDEX} | grep -c "needs updating")
+      UPDATES_LIST=$(${PKG} -j ${JID} ${PKG_OPTS} ${JAIL_PATH}${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
+      UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
     fi
   fi
 
