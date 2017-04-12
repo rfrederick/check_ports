@@ -1,3 +1,9 @@
+12 Apr 2017: bugfix release v0.7.2
+             - fixed an issue where the -c option was broken on
+               FreeBSD >= 10.x due to not performing the OS version
+               check early enough
+               (thanks to Andrea Venturoli <ml@netfence.it>)
+
 23 Jun 2014: release v0.7.1
              - fixed an issue where the number of packages available for
                upgrade was not properly reported in some instances

@@ -6,7 +6,7 @@
 # http://code.adminlife.net/check_ports/
 #
 # Copyright (c) 2008-2009, Matthias Kellermann
-# Copyright (c) 2014, Ryan Frederick
+# Copyright (c) 2014, 2017, Ryan Frederick
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without modification,
@@ -41,8 +41,8 @@ TMP_PATH=/tmp/jailaudit
 ###### global vars - don't touch ######
 
 PROGNAME="${0##*/}"
-VERSION=0.7.1
-DATE="23 Jun 2014"
+VERSION=0.7.2
+DATE="12 Apr 2017"
 PROJECTURL=https://github.com/rfrederick/check_ports
 
 RELEASE=$(uname -r)
@@ -245,6 +245,7 @@ check_env() {
     printf "  OK:    ${PORTINDEX} readable.\n"
   fi
 
+  printf "\n"
   exit 0
 }
 
@@ -385,9 +386,18 @@ do
   esac
 done
 
+# check OS release, use the pkg(8) suite of tools implicitly if the release is 10 or greater
+if [ ${RELEASE} -ge 10 ]
+then
+  USE_PKG=1
+fi
+
 PORTDIR=/usr/ports
 : ${PORTINDEX:="${PORTDIR}/INDEX-${RELEASE}"}
-: ${PORTAUDIT:=/usr/local/sbin/portaudit}
+if [ ${USE_PKG} -eq 0 ]
+then
+  : ${PORTAUDIT:=/usr/local/sbin/portaudit}
+fi
 
 [ -n "$run_check_env" ] && check_env
 
@@ -395,12 +405,6 @@ PORTDIR=/usr/ports
 if [ ${WARN_ON_ANY_UPDATE} -eq 1 -a ${ANY_UPDATE} -eq 1 ]
 then
   print_state "options -a and -w can not be used together." "3"
-fi
-
-# check OS release, use the pkg(8) suite of tools implicitly if the release is 10 or greater
-if [ ${RELEASE} -ge 10 ]
-then
-  USE_PKG=1
 fi
 
 # check for jail, then run run_main() or run_main_jail()
