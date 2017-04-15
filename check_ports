@@ -352,7 +352,7 @@ run_main_jail() {
       UPDATES_LIST=$(PKG_DBDIR=${JAIL_PATH}/var/db/pkg ${PKG_VERSION} ${PKGVERSION_OPTS} ${JAIL_PATH}${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
       UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
     else
-      UPDATES_LIST=$(${PKG} -j ${JID} ${PKG_OPTS} ${JAIL_PATH}${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
+      UPDATES_LIST=$(${PKG} -j ${JID} ${PKG_OPTS} ${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
       UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
     fi
   fi
