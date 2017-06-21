@@ -38,7 +38,8 @@ This will return a Warning state if the local ports tree is older than 24 hours:
 PORTS WARNING - 0 security problem(s), 0 Package(s) available for upgrade, Ports Tree older than 24h.
 
 To monitor installed packages on a jail within your system
-use the -j option along with the name of the jail:
+use the -j option along with the name of the jail.
+You must have copies of /usr/ports/INDEX-* and /var/db/pkg/vuln.xml in your jail:
 
 ./check_ports -j jailname
 PORTS OK - 0 security problem(s).
