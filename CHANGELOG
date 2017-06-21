@@ -1,3 +1,8 @@
+21 Jun 2017: bugfix release v0.7.3
+             - fixed an issue where the path to INDEX was not relative to
+               the root of the jail when using the -j option
+               (thanks to Steffen Brandemann <steffen@dakloetz.de>)
+
 12 Apr 2017: bugfix release v0.7.2
              - fixed an issue where the -c option was broken on
                FreeBSD >= 10.x due to not performing the OS version
