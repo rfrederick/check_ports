@@ -314,7 +314,7 @@ run_main() {
   then
     PROBLEMS=$(${PORTAUDIT} | grep "problem(s) in your\|the installed packages found." | awk '{ print $1 }')
   else
-    PROBLEMS=$(${PKG} audit | grep "problem(s) in your\|the installed packages found." | awk '{ print $1 }')
+    PROBLEMS=$(${PKG} audit | grep "problem(s) in\|installed packages found." | awk '{ print $1 }')
   fi
 
   run_gen_state
@@ -340,7 +340,7 @@ run_main_jail() {
       then
         PROBLEMS=$(${JEXEC} ${JID}  ${PORTAUDIT} | grep "problem(s) in your\|the installed packages found." | awk '{ print $1 }')
       else
-        PROBLEMS=$(${PKG} -j ${JID} audit | grep "problem(s) in your\|the installed packages found." | awk '{ print $1 }')
+        PROBLEMS=$(${PKG} -j ${JID} audit | grep "problem(s) in\|installed packages found." | awk '{ print $1 }')
       fi
     fi
   fi
