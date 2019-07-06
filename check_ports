@@ -312,9 +312,9 @@ run_main() {
   # count lines from portaudit
   if [ ${USE_PKG} -eq 0 ]
   then
-    PROBLEMS=$(${PORTAUDIT} | grep "problem(s) in your\|the installed packages found." | awk '{ print $1 }')
+    PROBLEMS=$(${PORTAUDIT} | grep "problem(s) in \(your\|the\|[0-9]\{1,\}\) installed \(packages\|package(s)\) found." | awk '{ print $1 }')
   else
-    PROBLEMS=$(${PKG} audit | grep "problem(s) in your\|the installed packages found." | awk '{ print $1 }')
+    PROBLEMS=$(${PKG} audit | grep "problem(s) in \(your\|the\|[0-9]\{1,\}\) installed \(packages\|package(s)\) found." | awk '{ print $1 }')
   fi
 
   run_gen_state
@@ -338,9 +338,9 @@ run_main_jail() {
       # count lines from portaudit
       if [ ${USE_PKG} -eq 0 ]
       then
-        PROBLEMS=$(${JEXEC} ${JID}  ${PORTAUDIT} | grep "problem(s) in your\|the installed packages found." | awk '{ print $1 }')
+        PROBLEMS=$(${JEXEC} ${JID}  ${PORTAUDIT} | grep "problem(s) in \(your\|the\|[0-9]\{1,\}\) installed \(packages\|package(s)\) found." | awk '{ print $1 }')
       else
-        PROBLEMS=$(${PKG} -j ${JID} audit | grep "problem(s) in your\|the installed packages found." | awk '{ print $1 }')
+        PROBLEMS=$(${PKG} -j ${JID} audit | grep "problem(s) in \(your\|the\|[0-9]\{1,\}\) installed \(packages\|package(s)\) found." | awk '{ print $1 }')
       fi
     fi
   fi

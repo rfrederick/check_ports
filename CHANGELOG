@@ -1,3 +1,6 @@
+05 Jul 2019: release v0.7.4
+             - chased wording changes to `pkg audit` output
+
 21 Jun 2017: bugfix release v0.7.3
              - fixed an issue where the path to INDEX was not relative to
                the root of the jail when using the -j option
