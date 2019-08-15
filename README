@@ -31,6 +31,13 @@ and have a Warning state returned if updates are available use the -w option:
 ./check_ports -w
 PORTS WARNING - 0 security problem(s), 1 Package(s) available for upgrade.
 
+If you want to monitor all of your installed packages for security
+vulnerabilites and have a Critical state returned if vulnerable
+packages are found, use the -s option:
+
+PORTS CRITICAL - 1 security problem(s), 3 Package(s) available for upgrade. | total_updates=3;0;0 security_problems=1;0;0
+mysql80-server-8.0.16_4
+
 If you want to monitor the age of the local ports tree use the -p option.
 This will return a Warning state if the local ports tree is older than 24 hours:
 

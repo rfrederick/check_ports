@@ -49,6 +49,7 @@ RELEASE=$(uname -r)
 RELEASE="${RELEASE%%.*}"
 ANY_UPDATE=0
 WARN_ON_ANY_UPDATE=0
+WARN_ON_SECURITY_UPDATE=0
 CHECK_PORTS_AGE=0
 UNPRIV_MODE=0
 MSG_STATE=0
@@ -264,6 +265,12 @@ run_gen_state() {
     MSG_UPDATES=", ${UPDATES} Package(s) available for upgrade"
   fi
 
+  if [ ${WARN_ON_SECURITY_UPDATE} -eq 1 -a ${PROBLEMS} -gt 0 ]
+  then
+    MSG_STATE="1"
+    MSG_UPDATES=", ${UPDATES} Package(s) available for upgrade"
+  fi
+
   if [ ${CHECK_PORTS_AGE} -eq 1 -a ${PORTSAGE} -gt 0 ]
   then
     MSG_STATE="1"
@@ -291,18 +298,23 @@ run_gen_state() {
 # main function
 run_main() {
   # count lines from portversion if asked
-  if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1  ]
+  if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1 \
+       -o ${WARN_ON_SECURITY_UPDATE} -eq 1 ]
   then
     if [ ${USE_PKG} -eq 0 ]
     then
       UPDATES_LIST=$(${PKG_VERSION} ${PKGVERSION_OPTS} ${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
       UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
+    elif [ ${WARN_ON_SECURITY_UPDATE} -eq 1 ];
+    then
+        UPDATES_LIST=$(${PKG} audit -q)
+        UPDATES=$(${PKG} version -l '<' | grep -c .)
     else
-      UPDATES_LIST=$(${PKG} ${PKG_OPTS} ${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
-      UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
+        UPDATES_LIST=$(${PKG} ${PKG_OPTS} ${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
+        UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
     fi
   fi
-  
+
   # count lines from find
   if [ ${CHECK_PORTS_AGE} -eq 1 ]
   then
@@ -345,12 +357,17 @@ run_main_jail() {
     fi
   fi
   # count lines from pkg_version if asked and set PKG_DBDIR
-  if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1  ]
+  if [ ${ANY_UPDATE} -eq 1 -o ${WARN_ON_ANY_UPDATE} -eq 1 \
+       -o ${WARN_ON_SECURITY_UPDATE} -eq 1 ]
   then
     if [ ${USE_PKG} -eq 0 ]
     then
       UPDATES_LIST=$(PKG_DBDIR=${JAIL_PATH}/var/db/pkg ${PKG_VERSION} ${PKGVERSION_OPTS} ${JAIL_PATH}${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
       UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
+    elif [ ${WARN_ON_SECURITY_UPDATE} -eq 1 ];
+    then
+        UPDATES_LIST=$(${PKG} -j ${JID} audit -q)
+        UPDATES=$(${PKG} -j ${JID} version -l '<' | grep -c .)
     else
       UPDATES_LIST=$(${PKG} -j ${JID} ${PKG_OPTS} ${PORTINDEX} | grep "needs updating" | awk '{ print $1 " " $5 " " $6 " " $7 }')
       UPDATES=$(echo "${UPDATES_LIST}" | grep -c .)
@@ -368,7 +385,7 @@ run_main_jail() {
 
 ###### main ######
 
-while getopts I:P:hvcawpuj:g opt 2>/dev/null
+while getopts I:P:hvcawspuj:g opt 2>/dev/null
 do
   case $opt in
     I) PORTINDEX="$OPTARG" ;;
@@ -378,6 +395,7 @@ do
     c) run_check_env=run_check_env;;
     a) ANY_UPDATE=1;;
     w) WARN_ON_ANY_UPDATE=1;;
+    s) WARN_ON_SECURITY_UPDATE=1;;
     p) CHECK_PORTS_AGE=1;;
     u) UNPRIV_MODE=1;;
     j) JAIL=${OPTARG};;

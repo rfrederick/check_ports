@@ -1,3 +1,7 @@
+16 Aug 2019: release v0.7.5
+             - added -s option to list vulnerable packages
+	       (thanks to Mike Fisher <mfisher911@gmail.com>)
+
 05 Jul 2019: release v0.7.4
              - chased wording changes to `pkg audit` output
 
