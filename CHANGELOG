@@ -1,3 +1,9 @@
+05 Jul 2025: release v0.7.5
+             - Chased changes in wording of the output of
+               `pkg audit` made in >=2.0.0 which broke reporting
+               of security problems in ports.
+               (thanks to Dominique Gagnon <gagnon.dom@gmail.com>)
+
 05 Jul 2019: release v0.7.4
              - chased wording changes to `pkg audit` output
 
